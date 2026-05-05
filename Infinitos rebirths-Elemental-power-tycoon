@@ -1,0 +1,150 @@
+-- SERVIÇOS
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local ProximityPromptService = game:GetService("ProximityPromptService")
+local LocalPlayer = Players.LocalPlayer
+
+-- INTERFACE ESTÉTICA
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "RejoinPrecision_V6"
+screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+screenGui.ResetOnSpawn = false
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 240, 0, 75)
+mainFrame.Position = UDim2.new(0.5, -120, 0, 40)
+mainFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 30)
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true 
+mainFrame.Parent = screenGui
+
+-- VARIÁVEIS DE CONTROLE
+local dragging = false
+local moveDetect = false
+local dragStart, startPos, dragInput
+local tempoDeEspera = 1.3
+local idConexao = 0 -- ID para controlar se a contagem atual ainda é válida
+
+-- FUNÇÃO PRINCIPAL DE REJOIN COM CANCELAMENTO
+local function iniciarContagemRejoin()
+	idConexao = idConexao + 1
+	local idAtual = idConexao
+	
+	local statusLabel = mainFrame:FindFirstChild("StatusLabel")
+	if statusLabel then
+		statusLabel.Text = "⏳ SEGURE... (1.3s)"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+	end
+
+	task.wait(tempoDeEspera)
+
+	-- Só teleporta se o ID ainda for o mesmo (ou seja, ninguém cancelou)
+	if idConexao == idAtual then
+		if statusLabel then
+			statusLabel.Text = "⚡ RECONECTANDO..."
+			statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+		end
+		
+		if #Players:GetPlayers() <= 1 then
+			TeleportService:Teleport(game.PlaceId, LocalPlayer)
+		else
+			TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+		end
+	end
+end
+
+local function cancelarRejoin()
+	idConexao = idConexao + 1 -- Muda o ID para invalidar a contagem anterior
+	local statusLabel = mainFrame:FindFirstChild("StatusLabel")
+	if statusLabel then
+		statusLabel.Text = "❌ CANCELADO / SOLTO"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+		task.wait(0.5)
+		statusLabel.Text = "✨ REJOIN PRECISION\n(Segure p/ Rejoin | Arraste p/ Mover)"
+		statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	end
+end
+
+-- 1. DETECÇÃO DO BOTÃO DO JOGO (PROXIMITY PROMPT)
+ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
+	if player == LocalPlayer then
+		local txt = string.lower(prompt.ObjectText .. prompt.ActionText)
+		if string.find(txt, "rena") or string.find(txt, "rebir") then
+			iniciarContagemRejoin()
+		end
+	end
+end)
+
+ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, player)
+	if player == LocalPlayer then
+		cancelarRejoin()
+	end
+end)
+
+-- 2. LÓGICA DE ARRASTAR E CLIQUE NA GUI (MANUAL)
+mainFrame.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		dragging = true
+		moveDetect = false
+		dragStart = input.Position
+		startPos = mainFrame.Position
+		
+		-- Inicia contagem ao tocar na GUI
+		task.spawn(function()
+			task.wait(0.1) -- Pequeno delay para checar se é arrasto
+			if dragging and not moveDetect then
+				iniciarContagemRejoin()
+			end
+		end)
+
+		input.Changed:Connect(function()
+			if input.UserInputState == Enum.UserInputState.End then
+				dragging = false
+				cancelarRejoin()
+			end
+		end)
+	end
+end)
+
+mainFrame.InputChanged:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+		dragInput = input
+		if dragStart and (input.Position - dragStart).Magnitude > 7 then
+			moveDetect = true
+			idConexao = idConexao + 1 -- Cancela o rejoin se começar a arrastar
+		end
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+	if input == dragInput and dragging then
+		local delta = input.Position - dragStart
+		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+	end
+end)
+
+-- ESTÉTICA
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(191, 0, 255)
+uiStroke.Thickness = 3
+uiStroke.Parent = mainFrame
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
+
+local uiGradient = Instance.new("UIGradient")
+uiGradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 0, 30))
+})
+uiGradient.Rotation = 45
+uiGradient.Parent = mainFrame
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Name = "StatusLabel"
+statusLabel.Size = UDim2.new(1, 0, 1, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "✨ REJOIN PRECISION\n(Segure p/ Rejoin | Arraste p/ Mover)"
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 12
+statusLabel.Parent = mainFrame
