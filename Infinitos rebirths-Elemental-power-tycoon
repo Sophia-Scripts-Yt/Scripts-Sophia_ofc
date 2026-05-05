@@ -1,218 +1,74 @@
--- PROTEÇÃO PARA O EXECUTOR NÃO TRAVAR
-local function SafeGet(service)
-    return game:GetService(service)
-end
+local TS = game:GetService("TeleportService")
+local LP = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local id = 0
 
-local TeleportService = SafeGet("TeleportService")
-local Players = SafeGet("Players")
-local UIS = SafeGet("UserInputService")
-local ProximityService = SafeGet("ProximityPromptService")
-local LocalPlayer = Players.LocalPlayer
+local sg = Instance.new("ScreenGui", LP.PlayerGui)
+sg.Name = "DraggableRejoin"
+sg.ResetOnSpawn = false
 
--- INTERFACE (ROXO SATISFATÓRIO)
-local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RejoinFinal_V9"
-screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-screenGui.ResetOnSpawn = false
+local frame = Instance.new("Frame", sg)
+frame.Size = UDim2.new(0, 220, 0, 70)
+frame.Position = UDim2.new(0.5, -110, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(20, 0, 40)
+frame.Active = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 15)
 
-local mainFrame = Instance.new("Frame")
-mainFrame.Size = UDim2.new(0, 240, 0, 75)
-mainFrame.Position = UDim2.new(0.5, -120, 0, 50)
-mainFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 30)
-mainFrame.Active = true 
-mainFrame.Parent = screenGui
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(191, 0, 255)
+stroke.Thickness = 3
 
--- ESTÉTICA (BORDAS E GRADIENTE)
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(191, 0, 255)
-uiStroke.Thickness = 3
-uiStroke.Parent = mainFrame
+local grad = Instance.new("UIGradient", frame)
+grad.Color = ColorSequence.new(Color3.fromRGB(80,0,150), Color3.fromRGB(15,0,30))
+grad.Rotation = 45
 
-local uiGradient = Instance.new("UIGradient")
-uiGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 150)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 0, 30))
-})
-uiGradient.Rotation = 45
-uiGradient.Parent = mainFrame
+local lbl = Instance.new("TextLabel", frame)
+lbl.Size = UDim2.new(1, 0, 1, 0)
+lbl.BackgroundTransparency = 1
+lbl.Text = "✨ REJOIN PRO\n1.23s | Segure"
+lbl.TextColor3 = Color3.new(1, 1, 1)
+lbl.Font = Enum.Font.GothamBold
+lbl.TextSize = 12
 
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, 0, 1, 0)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "✨ REJOIN PRONTO\n(Segure 1.23s | Arraste)"
-statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-statusLabel.Font = Enum.Font.GothamBold
-statusLabel.TextSize = 12
-statusLabel.Parent = mainFrame
-
--- VARIÁVEIS DE CONTROLE
-local dragging, dragStart, startPos
-local idAcao = 0
-
--- FUNÇÃO DE TELEPORTE
-local function executarTeleporte()
-    idAcao = idAcao + 1
-    local meuId = idAcao
-    
-    statusLabel.Text = "⏳ SEGURE... (1.23s)"
-    statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
-    
+local function rej()
+    id = id + 1
+    local myId = id
+    lbl.Text = "⏳ SEGURE... (1.23s)"
     task.wait(1.23)
-    
-    if idAcao == meuId then
-        statusLabel.Text = "⚡ RECONECTANDO..."
-        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        
-        if #Players:GetPlayers() <= 1 then
-            TeleportService:Teleport(game.PlaceId, LocalPlayer)
+    if id == myId then
+        lbl.Text = "⚡ RECONECTANDO..."
+        if #game.Players:GetPlayers() <= 1 then
+            TS:Teleport(game.PlaceId, LP)
         else
-            TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+            TS:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
         end
     end
 end
 
-local function cancelar()
-    idAcao = idAcao + 1
-    statusLabel.Text = "✨ REJOIN PRONTO\n(Segure 1.23s | Arraste)"
-    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+local function canc()
+    id = id + 1
+    lbl.Text = "✨ REJOIN PRO\n1.23s | Segure"
 end
 
--- ARRASTAR (LÓGICA SIMPLIFICADA)
-mainFrame.InputBegan:Connect(function(input)
+-- Arrastar Simplificado
+local drag, start, startPos
+frame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = mainFrame.Position
-        
-        local movido = false
-        local connection
-        connection = UIS.InputChanged:Connect(function(change)
-            if dragging and (change.UserInputType == Enum.UserInputType.MouseMovement or change.UserInputType == Enum.UserInputType.Touch) then
-                local delta = change.Position - dragStart
-                if delta.Magnitude > 10 then 
-                    movido = true 
-                    idAcao = idAcao + 1 -- Cancela se mover
-                end
-                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        drag = true start = input.Position startPos = frame.Position
+        local moved = false
+        local con; con = UIS.InputChanged:Connect(function(c)
+            if drag and (c.UserInputType == Enum.UserInputType.MouseMovement or c.UserInputType == Enum.UserInputType.Touch) then
+                local delta = c.Position - start
+                if delta.Magnitude > 10 then moved = true id = id + 1 end
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
         end)
-        
-        -- Inicia tentativa de Rejoin se não mover logo
-        task.delay(0.15, function()
-            if dragging and not movido then executarTeleporte() end
-        end)
-
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then
-                dragging = false
-                cancelar()
-                if connection then connection:Disconnect() end
-            end
-        end)
+        task.delay(0.2, function() if drag and not moved then rej() end end)
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then drag = false canc() con:Disconnect() end end)
     end
 end)
 
--- DETECTOR PROXIMITY (BOTÃO DO JOGO)
-ProximityService.PromptButtonHoldBegan:Connect(function(p)
-    if string.find(string.lower(p.ObjectText .. p.ActionText), "rena") or string.find(string.lower(p.ObjectText .. p.ActionText), "rebir") then
-        executarTeleporte()
-    end
+game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
+    if string.find(string.lower(p.ObjectText..p.ActionText), "rena") or string.find(string.lower(p.ObjectText..p.ActionText), "rebir") then rej() end
 end)
-ProximityService.PromptButtonHoldEnded:Connect(cancelar)
-
-print("Script Carregado com Sucesso!")
-end)
-
-mainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-        dragInput = input
-        if dragStart and (input.Position - dragStart).Magnitude > 8 then
-            moveDetect = true
-            if dragging then
-                idConexao = idConexao + 1
-            end
-        end
-    end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then
-        local delta = input.Position - dragStart
-        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-    end
-end)
-
--- ESTÉTICA (BORDAS E GRADIENTE)
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(191, 0, 255)
-uiStroke.Thickness = 3
-uiStroke.Parent = mainFrame
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
-
-local uiGradient = Instance.new("UIGradient")
-uiGradient.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 0, 30))
-})
-uiGradient.Rotation = 45
-uiGradient.Parent = mainFrame
-
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Name = "StatusLabel"
-statusLabel.Size = UDim2.new(1, 0, 1, 0)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "✨ REJOIN PRO\n(Segure p/ Rejoin | Arraste p/ Mover)"
-statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-statusLabel.Font = Enum.Font.GothamBold
-statusLabel.TextSize = 12
-statusLabel.Parent = mainFrame
-			if input.UserInputState == Enum.UserInputState.End then
-				dragging = false
-				cancelarRejoin()
-			end
-		end)
-	end
-end)
-
-mainFrame.InputChanged:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-		dragInput = input
-		if dragStart and (input.Position - dragStart).Magnitude > 7 then
-			moveDetect = true
-			idConexao = idConexao + 1 -- Cancela o rejoin se começar a arrastar
-		end
-	end
-end)
-
-UserInputService.InputChanged:Connect(function(input)
-	if input == dragInput and dragging then
-		local delta = input.Position - dragStart
-		mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
-end)
-
--- ESTÉTICA
-local uiStroke = Instance.new("UIStroke")
-uiStroke.Color = Color3.fromRGB(191, 0, 255)
-uiStroke.Thickness = 3
-uiStroke.Parent = mainFrame
-Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
-
-local uiGradient = Instance.new("UIGradient")
-uiGradient.Color = ColorSequence.new({
-	ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 0, 120)),
-	ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 0, 30))
-})
-uiGradient.Rotation = 45
-uiGradient.Parent = mainFrame
-
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Name = "StatusLabel"
-statusLabel.Size = UDim2.new(1, 0, 1, 0)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Text = "✨ REJOIN PRECISION\n(Segure p/ Rejoin | Arraste p/ Mover)"
-statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-statusLabel.Font = Enum.Font.GothamBold
-statusLabel.TextSize = 12
-statusLabel.Parent = mainFrame
+game:GetService("ProximityPromptService").PromptButtonHoldEnded:Connect(canc)
