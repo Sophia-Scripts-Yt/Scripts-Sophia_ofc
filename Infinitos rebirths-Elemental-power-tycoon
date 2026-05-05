@@ -1,50 +1,68 @@
--- SERVIÇOS
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local ProximityPromptService = game:GetService("ProximityPromptService")
+-- PROTEÇÃO PARA O EXECUTOR NÃO TRAVAR
+local function SafeGet(service)
+    return game:GetService(service)
+end
+
+local TeleportService = SafeGet("TeleportService")
+local Players = SafeGet("Players")
+local UIS = SafeGet("UserInputService")
+local ProximityService = SafeGet("ProximityPromptService")
 local LocalPlayer = Players.LocalPlayer
 
--- INTERFACE ESTÉTICA
+-- INTERFACE (ROXO SATISFATÓRIO)
 local screenGui = Instance.new("ScreenGui")
-screenGui.Name = "RejoinPrecision_V8"
+screenGui.Name = "RejoinFinal_V9"
 screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 screenGui.ResetOnSpawn = false
 
 local mainFrame = Instance.new("Frame")
 mainFrame.Size = UDim2.new(0, 240, 0, 75)
-mainFrame.Position = UDim2.new(0.5, -120, 0, 40)
+mainFrame.Position = UDim2.new(0.5, -120, 0, 50)
 mainFrame.BackgroundColor3 = Color3.fromRGB(15, 0, 30)
-mainFrame.BorderSizePixel = 0
 mainFrame.Active = true 
 mainFrame.Parent = screenGui
 
+-- ESTÉTICA (BORDAS E GRADIENTE)
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 15)
+local uiStroke = Instance.new("UIStroke")
+uiStroke.Color = Color3.fromRGB(191, 0, 255)
+uiStroke.Thickness = 3
+uiStroke.Parent = mainFrame
+
+local uiGradient = Instance.new("UIGradient")
+uiGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 150)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(15, 0, 30))
+})
+uiGradient.Rotation = 45
+uiGradient.Parent = mainFrame
+
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, 0, 1, 0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Text = "✨ REJOIN PRONTO\n(Segure 1.23s | Arraste)"
+statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+statusLabel.Font = Enum.Font.GothamBold
+statusLabel.TextSize = 12
+statusLabel.Parent = mainFrame
+
 -- VARIÁVEIS DE CONTROLE
-local dragging = false
-local moveDetect = false
-local dragStart, startPos, dragInput
-local tempoDeEspera = 1.23 -- VALOR ATUALIZADO
-local idConexao = 0 
+local dragging, dragStart, startPos
+local idAcao = 0
 
--- FUNÇÃO PRINCIPAL DE REJOIN
-local function iniciarContagemRejoin()
-    idConexao = idConexao + 1
-    local idAtual = idConexao
+-- FUNÇÃO DE TELEPORTE
+local function executarTeleporte()
+    idAcao = idAcao + 1
+    local meuId = idAcao
     
-    local statusLabel = mainFrame:FindFirstChild("StatusLabel")
-    if statusLabel then
-        statusLabel.Text = "⏳ SEGURANDO... (1.23s)"
-        statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
-    end
-
-    task.wait(tempoDeEspera)
-
-    -- Verifica se ainda é a mesma tentativa e se não está arrastando
-    if idConexao == idAtual and not moveDetect then
-        if statusLabel then
-            statusLabel.Text = "⚡ RECONECTANDO..."
-            statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        end
+    statusLabel.Text = "⏳ SEGURE... (1.23s)"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 200, 0)
+    
+    task.wait(1.23)
+    
+    if idAcao == meuId then
+        statusLabel.Text = "⚡ RECONECTANDO..."
+        statusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
         
         if #Players:GetPlayers() <= 1 then
             TeleportService:Teleport(game.PlaceId, LocalPlayer)
@@ -54,51 +72,56 @@ local function iniciarContagemRejoin()
     end
 end
 
-local function cancelarRejoin()
-    idConexao = idConexao + 1 
-    local statusLabel = mainFrame:FindFirstChild("StatusLabel")
-    if statusLabel then
-        statusLabel.Text = "✨ REJOIN PRO"
-        statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    end
+local function cancelar()
+    idAcao = idAcao + 1
+    statusLabel.Text = "✨ REJOIN PRONTO\n(Segure 1.23s | Arraste)"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
--- 1. DETECÇÃO DO PROXIMITY PROMPT (BOTÃO DO JOGO)
-ProximityPromptService.PromptButtonHoldBegan:Connect(function(prompt, player)
-    if player == LocalPlayer then
-        local txt = string.lower(prompt.ObjectText .. prompt.ActionText)
-        if string.find(txt, "rena") or string.find(txt, "rebir") then
-            iniciarContagemRejoin()
-        end
-    end
-end)
-
-ProximityPromptService.PromptButtonHoldEnded:Connect(function(prompt, player)
-    if player == LocalPlayer then cancelarRejoin() end
-end)
-
--- 2. LÓGICA DE ARRASTAR E CLIQUE NA GUI
+-- ARRASTAR (LÓGICA SIMPLIFICADA)
 mainFrame.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
         dragStart = input.Position
         startPos = mainFrame.Position
-        dragging = true
-        moveDetect = false
         
-        task.spawn(function()
-            task.wait(0.2) -- Janela para detectar se é arrasto
-            if dragging and not moveDetect then
-                iniciarContagemRejoin()
+        local movido = false
+        local connection
+        connection = UIS.InputChanged:Connect(function(change)
+            if dragging and (change.UserInputType == Enum.UserInputType.MouseMovement or change.UserInputType == Enum.UserInputType.Touch) then
+                local delta = change.Position - dragStart
+                if delta.Magnitude > 10 then 
+                    movido = true 
+                    idAcao = idAcao + 1 -- Cancela se mover
+                end
+                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
             end
+        end)
+        
+        -- Inicia tentativa de Rejoin se não mover logo
+        task.delay(0.15, function()
+            if dragging and not movido then executarTeleporte() end
         end)
 
         input.Changed:Connect(function()
             if input.UserInputState == Enum.UserInputState.End then
                 dragging = false
-                cancelarRejoin()
+                cancelar()
+                if connection then connection:Disconnect() end
             end
         end)
     end
+end)
+
+-- DETECTOR PROXIMITY (BOTÃO DO JOGO)
+ProximityService.PromptButtonHoldBegan:Connect(function(p)
+    if string.find(string.lower(p.ObjectText .. p.ActionText), "rena") or string.find(string.lower(p.ObjectText .. p.ActionText), "rebir") then
+        executarTeleporte()
+    end
+end)
+ProximityService.PromptButtonHoldEnded:Connect(cancelar)
+
+print("Script Carregado com Sucesso!")
 end)
 
 mainFrame.InputChanged:Connect(function(input)
