@@ -1,0 +1,82 @@
+local TS = game:GetService("TeleportService")
+local LP = game.Players.LocalPlayer
+local UIS = game:GetService("UserInputService")
+local id = 0
+
+-- DisplayOrder alto para ficar acima de tudo
+local sg = Instance.new("ScreenGui", LP.PlayerGui)
+sg.Name = "DraggableRejoin"
+sg.ResetOnSpawn = false
+sg.DisplayOrder = 999999999 
+
+local frame = Instance.new("Frame", sg)
+frame.Size = UDim2.new(0, 220, 0, 70)
+frame.Position = UDim2.new(0.5, -110, 0, 50)
+frame.BackgroundColor3 = Color3.fromRGB(20, 0, 40)
+frame.Active = true
+frame.ZIndex = 10
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 15)
+
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(191, 0, 255)
+stroke.Thickness = 3
+
+local grad = Instance.new("UIGradient", frame)
+grad.Color = ColorSequence.new(Color3.fromRGB(80,0,150), Color3.fromRGB(15,0,30))
+grad.Rotation = 45
+
+local lbl = Instance.new("TextLabel", frame)
+lbl.Size = UDim2.new(1, 0, 1, 0)
+lbl.BackgroundTransparency = 1
+lbl.Text = "✨ REJOIN PRO\n1.21s | Segure"
+lbl.TextColor3 = Color3.new(1, 1, 1)
+lbl.Font = Enum.Font.GothamBold
+lbl.TextSize = 12
+lbl.ZIndex = 11
+
+-- FUNÇÃO REJOIN ATUALIZADA PARA 1.21s
+local function rej()
+    id = id + 1
+    local myId = id
+    lbl.Text = "⏳ SEGURE... (1.21s)"
+    task.wait(1.21) -- Alterado de 1.23 para 1.21
+    if id == myId then
+        lbl.Text = "⚡ RECONECTANDO..."
+        if #game.Players:GetPlayers() <= 1 then
+            TS:Teleport(game.PlaceId, LP)
+        else
+            TS:TeleportToPlaceInstance(game.PlaceId, game.JobId, LP)
+        end
+    end
+end
+
+local function canc()
+    id = id + 1
+    lbl.Text = "✨ REJOIN PRO\n1.21s | Segure"
+end
+
+-- Arrastar Simplificado
+local drag, start, startPos
+frame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        drag = true start = input.Position startPos = frame.Position
+        local moved = false
+        local con; con = UIS.InputChanged:Connect(function(c)
+            if drag and (c.UserInputType == Enum.UserInputType.MouseMovement or c.UserInputType == Enum.UserInputType.Touch) then
+                local delta = c.Position - start
+                if delta.Magnitude > 10 then moved = true id = id + 1 end
+                frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+            end
+        end)
+        task.delay(0.2, function() if drag and not moved then rej() end end)
+        input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then drag = false canc() con:Disconnect() end end)
+    end
+end)
+
+-- Gatilhos de ProximityPrompt
+game:GetService("ProximityPromptService").PromptButtonHoldBegan:Connect(function(p)
+    if string.find(string.lower(p.ObjectText..p.ActionText), "rena") or string.find(string.lower(p.ObjectText..p.ActionText), "rebir") then 
+        rej() 
+    end
+end)
+game:GetService("ProximityPromptService").PromptButtonHoldEnded:Connect(canc)
